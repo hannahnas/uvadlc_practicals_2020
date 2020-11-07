@@ -25,15 +25,12 @@ class LinearModule(object):
         Also, initialize gradients with zeros.
         """
         
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
-
-        raise NotImplementedError
+        self.params = {}
+        self.params['weight'] = np.random.normal(scale=0.0001, size=(in_features, out_features))
+        self.params['bias'] = np.zeros(shape=(out_features))
         
-        ########################
-        # END OF YOUR CODE    #
-        #######################
+        self.grads = {}
+    
     
     def forward(self, x):
         """
@@ -50,15 +47,8 @@ class LinearModule(object):
         Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.
         """
         
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
-
-        raise NotImplementedError
-        
-        ########################
-        # END OF YOUR CODE    #
-        #######################
+        out = x @ self.params['weight'] + self.params['bias']
+        self.x = x
         
         return out
     
@@ -76,15 +66,10 @@ class LinearModule(object):
         layer parameters in self.grads['weight'] and self.grads['bias'].
         """
         
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
-
-        raise NotImplementedError
+        dx = dout @ self.params['weight'].T
+        self.grads['weight'] = self.x.T @ dout
+        self.grads['bias'] = dout
         
-        ########################
-        # END OF YOUR CODE    #
-        #######################
         return dx
 
 
@@ -108,16 +93,10 @@ class SoftMaxModule(object):
     
         Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.
         """
-        
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
 
-        raise NotImplementedError
-        
-        ########################
-        # END OF YOUR CODE    #
-        #######################
+        self.x = x
+        b = np.max(x, axis=1).reshape(-1, 1)
+        out = np.exp(x - b) / np.sum(np.exp(x - b), axis=1).reshape(-1, 1)
         
         return out
     
@@ -132,16 +111,15 @@ class SoftMaxModule(object):
         TODO:
         Implement backward pass of the module.
         """
-        
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
 
-        raise NotImplementedError
-        
-        ########################
-        # END OF YOUR CODE    #
-        #######################
+        softmax = self.forward(self.x)
+
+        dx = []
+        for i, vec in enumerate(softmax):
+            d_sample = - vec.reshape(-1, 1) @ vec.reshape(1, -1) + np.diag(vec)
+            dx.append(dout[i, :] @ d_sample)
+
+        dx = np.array(dx)
         
         return dx
 
@@ -168,7 +146,7 @@ class CrossEntropyModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
-        raise NotImplementedError
+        out = - np.sum(y * np.log(x))
         
         ########################
         # END OF YOUR CODE    #
@@ -188,16 +166,8 @@ class CrossEntropyModule(object):
         TODO:
         Implement backward pass of the module.
         """
-        
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
 
-        raise NotImplementedError
-        
-        ########################
-        # END OF YOUR CODE    #
-        #######################
+        dx = - y / x
         
         return dx
 
@@ -221,15 +191,8 @@ class ELUModule(object):
 
         Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.
         """
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
-        
-        raise NotImplementedError
-        
-        ########################
-        # END OF YOUR CODE    #
-        #######################
+        out = np.where(x > 0, x, (np.exp(x) - 1))
+        self.x = x
         
         return out
     
@@ -244,14 +207,8 @@ class ELUModule(object):
         TODO:
         Implement backward pass of the module.
         """
-        
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
 
-        raise NotImplementedError
+        d_elu = np.where(self.x > 0, 1, np.exp(self.x))
+        dx = dout * d_elu
 
-        ########################
-        # END OF YOUR CODE    #
-        #######################
         return dx

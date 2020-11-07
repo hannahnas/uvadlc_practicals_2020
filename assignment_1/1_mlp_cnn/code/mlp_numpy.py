@@ -16,7 +16,7 @@ class MLP(object):
     Once initialized an MLP object can perform forward and backward.
     """
     
-    def __init__(self, n_inputs, n_hidden, n_classes, neg_slope):
+    def __init__(self, n_inputs, n_hidden, n_classes):
         """
         Initializes MLP object.
         
@@ -34,14 +34,20 @@ class MLP(object):
         TODO:
         Implement initialization of the network.
         """
-        
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
-        raise NotImplementedError
-        ########################
-        # END OF YOUR CODE    #
-        #######################
+
+        self.network = []
+        nodes = [n_inputs] + n_hidden
+
+        iterable = list(zip(nodes, nodes[1:]))
+
+        for inputs, outputs in iterable:
+            self.network.append(LinearModule(inputs, outputs))
+            self.network.append(ELUModule())
+
+        self.network.append(LinearModule(nodes[-1], n_classes))
+        self.network.append(SoftMaxModule())
+
+
     
     def forward(self, x):
         """
@@ -56,14 +62,10 @@ class MLP(object):
         TODO:
         Implement forward pass of the network.
         """
-        
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
-        raise NotImplementedError
-        ########################
-        # END OF YOUR CODE    #
-        #######################
+
+        out = x
+        for module in self.network:
+            out = module.forward(out)
         
         return out
     
@@ -77,13 +79,9 @@ class MLP(object):
         TODO:
         Implement backward pass of the network.
         """
+
+        dout = dout
+        for module in self.network[::-1]:
+            dout = module.backward(dout)
         
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
-        raise NotImplementedError
-        ########################
-        # END OF YOUR CODE    #
-        #######################
-        
-        return
+        return dout
