@@ -11,6 +11,7 @@ import numpy as np
 import os
 from convnet_pytorch import ConvNet
 import cifar10_utils
+import pickle
 
 import torch
 import torch.nn as nn
@@ -46,14 +47,9 @@ def accuracy(predictions, targets):
     Implement accuracy computation.
     """
     
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
-    
+    pred = torch.argmax(predictions, dim=1)
+    accuracy = torch.sum(pred == targets) / float(targets.shape[0])
+ 
     return accuracy
 
 
@@ -70,13 +66,80 @@ def train():
     np.random.seed(42)
     torch.manual_seed(42)
     
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    max_steps = FLAGS.max_steps
+    lr = FLAGS.learning_rate
+    batch_size = FLAGS.batch_size
+    eval_freq = FLAGS.eval_freq
+
+    device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda:0")
+    print("Using device", device)
+
+     # Load data
+    cifar10 = cifar10_utils.get_cifar10(FLAGS.data_dir)
+    N_test = cifar10['test'].num_examples
+    test_batch_size = 50
+
+    # Initialize network
+    cnn = ConvNet(n_channels=3, n_classes=10).to(device)
+
+    # print(cnn)
+    optimizer = torch.optim.Adam(cnn.parameters(), lr=lr)
+    loss_module = nn.CrossEntropyLoss()
+    
+    performance = {}
+    performance['Training loss (batch)'] = []
+    performance['Training accuracy (batch)'] = []
+    performance['Test loss'] = []
+    performance['Test accuracy'] = []
+
+    for i in range(max_steps):
+        x, y = cifar10['train'].next_batch(batch_size)
+        x, y = torch.Tensor(x).to(device), torch.Tensor(y).to(device)
+        y = torch.argmax(y, axis=1)
+        
+        pred = cnn(x)
+        loss = loss_module(input=pred, target=y)
+        performance['Training loss (batch)'].append([i, loss.item()])
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if i % eval_freq == 0 or i == 4999:
+            print(f'Step: {i}')
+
+            # calculate accuracy
+            test_acc = 0
+            test_loss = 0
+            
+            runs = N_test/test_batch_size
+
+            with torch.no_grad():
+                for _ in range(int(runs)):
+
+                    x_test, y_test = cifar10['test'].next_batch(test_batch_size)
+                    x_test, y_test = torch.Tensor(x_test).to(device), torch.Tensor(y_test).to(device)
+                    y_test = torch.argmax(y_test, axis=1)
+
+                    test_pred = cnn(x_test)
+                    test_acc += accuracy(test_pred, y_test)
+                    test_loss += loss_module(input=test_pred, target=y_test).item()
+
+            test_acc = test_acc / (runs)
+            test_loss = test_loss / (runs)
+            train_acc = accuracy(pred, y)
+
+            performance['Test loss'].append([i, test_loss])
+            performance['Test accuracy'].append([i, test_acc])
+            performance['Training accuracy (batch)'].append([i, train_acc])
+
+            print(f'Training loss (batch): {loss}')
+            print(f'Training accuracy (batch): {train_acc}')
+            print(f'Test loss: {test_loss}')
+            print(f'Test accuracy: {test_acc}\n')
+
+    pickle.dump(performance, open("CNN_curves.p", "wb" ))
+
 
 
 def print_flags():

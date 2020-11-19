@@ -10,8 +10,9 @@ import argparse
 import numpy as np
 import os
 from mlp_numpy import MLP
-from modules import CrossEntropyModule
+from modules import CrossEntropyModule, LinearModule
 import cifar10_utils
+import pickle
 
 # Default constants
 DNN_HIDDEN_UNITS_DEFAULT = '100'
@@ -44,13 +45,9 @@ def accuracy(predictions, targets):
     Implement accuracy computation.
     """
 
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    pred = np.argmax(predictions, axis=1)
+    tar = np.argmax(targets, axis=1)
+    accuracy = np.sum(pred == tar) / targets.shape[0]
 
     return accuracy
 
@@ -75,13 +72,69 @@ def train():
     else:
         dnn_hidden_units = []
 
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    batch_size = FLAGS.batch_size
+    max_steps = FLAGS.max_steps
+    eval_freq = FLAGS.eval_freq
+    lr = FLAGS.learning_rate
+
+    # Load data
+    cifar10 = cifar10_utils.get_cifar10(FLAGS.data_dir)
+    N_test = cifar10['test'].num_examples
+    test_x = cifar10['test'].images.reshape(N_test, -1)
+    test_y = cifar10['test'].labels
+
+    # Initialize network
+    n_inputs = 3 * 32 * 32
+    n_classes = 10
+    mlp = MLP(n_inputs, dnn_hidden_units, n_classes)
+    entropy = CrossEntropyModule()
+    
+    print('\nNetwork architecture')
+    for module in mlp.network:
+        print(type(module))
+    print('\n')
+    performance = {}
+    performance['Training loss (batch)'] = []
+    performance['Training accuracy (batch)'] = []
+    performance['Test loss'] = []
+    performance['Test accuracy'] = []
+
+    # Training
+    for i in range(max_steps):
+        x, y = cifar10['train'].next_batch(batch_size)
+        x = x.reshape((batch_size, n_inputs))
+
+        pred = mlp.forward(x)
+        loss = entropy.forward(pred, y)
+        performance['Training loss (batch)'].append([i, loss])
+
+        dout = entropy.backward(pred, y)
+        mlp.backward(dout)
+
+        # Update weights
+        for module in mlp.network:
+            if isinstance(module, LinearModule):
+                module.params['weight'] -= lr * module.grads['weight']
+                module.params['bias'] -= lr * module.grads['bias']
+
+        # Evaluation
+        if i % eval_freq == 0 or i == 1399:
+            print(f'Step: {i}')
+
+            train_acc = accuracy(pred, y)
+            test_pred = mlp.forward(test_x)
+            test_loss = entropy.forward(test_pred, test_y)
+            test_acc = accuracy(test_pred, test_y)
+            performance['Test loss'].append([i, test_loss])
+            performance['Test accuracy'].append([i, test_acc])
+            performance['Training accuracy (batch)'].append([i, train_acc])
+
+            print(f'Training loss (batch): {loss}')
+            print(f'Training accuracy (batch): {train_acc}')
+            print(f'Test loss: {test_loss}')
+            print(f'Test accuracy: {test_acc}\n')
+
+    pickle.dump(performance, open("MLP_numpy_curves.p", "wb" ))
 
 
 def print_flags():

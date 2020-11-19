@@ -68,7 +68,7 @@ class LinearModule(object):
         
         dx = dout @ self.params['weight'].T
         self.grads['weight'] = self.x.T @ dout
-        self.grads['bias'] = dout
+        self.grads['bias'] = np.ones((dout.shape[0])) @ dout
         
         return dx
 
@@ -97,7 +97,7 @@ class SoftMaxModule(object):
         self.x = x
         b = np.max(x, axis=1).reshape(-1, 1)
         out = np.exp(x - b) / np.sum(np.exp(x - b), axis=1).reshape(-1, 1)
-        
+
         return out
     
     def backward(self, dout):
@@ -141,16 +141,9 @@ class CrossEntropyModule(object):
         TODO:
         Implement forward pass of the module.
         """
-        
-        ########################
-        # PUT YOUR CODE HERE  #
-        #######################
 
-        out = - np.sum(y * np.log(x))
-        
-        ########################
-        # END OF YOUR CODE    #
-        #######################
+        out = - np.sum(y * np.log(x), axis=1)
+        out = np.mean(out)
         
         return out
     
@@ -167,7 +160,7 @@ class CrossEntropyModule(object):
         Implement backward pass of the module.
         """
 
-        dx = - y / x
+        dx = - y / x / y.shape[0]
         
         return dx
 
@@ -191,7 +184,7 @@ class ELUModule(object):
 
         Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.
         """
-        out = np.where(x > 0, x, (np.exp(x) - 1))
+        out = np.where(x >= 0, x, (np.exp(x) - 1))
         self.x = x
         
         return out

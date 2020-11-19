@@ -11,6 +11,7 @@ import numpy as np
 import os
 from mlp_pytorch import MLP
 import cifar10_utils
+import pickle
 
 import torch
 import torch.nn as nn
@@ -47,13 +48,9 @@ def accuracy(predictions, targets):
     Implement accuracy computation.
     """
     
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    pred = torch.argmax(predictions, dim=1)
+    # tar = torch.argmax(targets, dim=1)
+    accuracy = torch.sum(pred == targets) / float(targets.shape[0])
     
     return accuracy
 
@@ -78,16 +75,69 @@ def train():
         dnn_hidden_units = [int(dnn_hidden_unit_) for dnn_hidden_unit_ in dnn_hidden_units]
     else:
         dnn_hidden_units = []
-    
-    neg_slope = FLAGS.neg_slope
-    
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+
+    batch_size = FLAGS.batch_size
+    max_steps = FLAGS.max_steps
+    eval_freq = FLAGS.eval_freq
+    lr = FLAGS.learning_rate
+
+    performance = {'Training loss (batch)': [],
+                    'Training accuracy (batch)': [],
+                    'Test loss': [],
+                    'Test accuracy': []}
+
+    # Load data
+    cifar10 = cifar10_utils.get_cifar10(FLAGS.data_dir)
+    N_test = cifar10['test'].num_examples
+
+    test_x = torch.Tensor(cifar10['test'].images.reshape(N_test, -1))
+    test_y = torch.Tensor(cifar10['test'].labels)
+    test_y = torch.argmax(test_y, axis=1)
+
+    # Model and optimization
+    n_inputs = 3 * 32 * 32
+    n_classes = 10
+    mlp = MLP(n_inputs, dnn_hidden_units, n_classes)
+
+    if FLAGS.optim == 'adam':
+        optimizer = torch.optim.Adam(mlp.parameters(), lr=lr)
+    else:
+        optimizer = torch.optim.SGD(mlp.parameters(), lr=lr)
+    loss_module = nn.CrossEntropyLoss()
+
+    for i in range(max_steps):
+        x, y = cifar10['train'].next_batch(batch_size)
+        x, y = torch.Tensor(x).reshape(batch_size, n_inputs), torch.Tensor(y)
+        y = torch.argmax(y, axis=1)
+        
+        pred = mlp(x)
+        loss = loss_module(input=pred, target=y)
+        performance['Training loss (batch)'].append([i, loss.item()])
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Evaluation
+        if (i % eval_freq == 0) or (i == eval_freq-1):
+            print(f'Step: {i}')
+
+            with torch.no_grad():
+                test_pred = mlp(test_x)
+                test_loss = loss_module(test_pred, test_y)
+                test_acc = accuracy(test_pred, test_y)
+                train_acc = accuracy(pred, y)
+            
+            performance['Test loss'].append([i, test_loss])
+            performance['Test accuracy'].append([i, test_acc])
+            performance['Training accuracy (batch)'].append([i, train_acc])
+
+            print(f'Training loss (batch): {loss}')
+            print(f'Test loss: {test_loss}')
+            print(f'Train accuracy (batch): {train_acc}')
+            print(f'Test accuracy: {test_acc}\n')
+
+    pickle.dump(performance, open("MLP_pytorch_curves_"+FLAGS.optim+".p", "wb" ))
 
 
 def print_flags():
@@ -126,7 +176,9 @@ if __name__ == '__main__':
     parser.add_argument('--eval_freq', type=int, default=EVAL_FREQ_DEFAULT,
                         help='Frequency of evaluation on the test set')
     parser.add_argument('--data_dir', type=str, default=DATA_DIR_DEFAULT,
-                        help='Directory for storing input data')
+                        help='Directory for storing input data'),
+    parser.add_argument('--optim', type=str, default='SGD',
+                        help='Optimizer')
     FLAGS, unparsed = parser.parse_known_args()
     
     main()
