@@ -148,7 +148,6 @@ def train(config):
         #######################################################################
 
         optimizer.step()
-
         predictions = torch.argmax(log_probs, dim=1)
         correct = (predictions == batch_targets).sum().item()
         accuracy = correct / log_probs.size(0)

@@ -23,9 +23,11 @@ from datetime import datetime
 import argparse
 
 import numpy as np
+import random
 
 import torch
 import torch.optim as optim
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from dataset import TextDataset
@@ -40,27 +42,40 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = TextDataset(...)  # fixme
+    dataset = TextDataset(config.txt_file, config.seq_length)
     data_loader = DataLoader(dataset, config.batch_size)
+    vocab = dataset.vocab_size
 
     # Initialize the model that we are going to use
-    model = TextGenerationModel(...)  # FIXME
+    model = TextGenerationModel(config.batch_size, config.seq_length, vocab)
 
     # Setup the loss and optimizer
-    criterion = None  # FIXME
-    optimizer = None  # FIXME
+    criterion = torch.nn.CrossEntropyLoss()  # FIXME
+    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.learning_rate_decay)
+
+    batch = config.batch_size
 
     for step, (batch_inputs, batch_targets) in enumerate(data_loader):
 
         # Only for time measurement of step through network
         t1 = time.time()
 
-        #######################################################
-        # Add more code here ...
-        #######################################################
+        batch_inputs = torch.stack(batch_inputs)
+        batch_targets = torch.stack(batch_targets).to(device)
 
-        loss = np.inf   # fixme
-        accuracy = 0.0  # fixme
+        batch_inputs = F.one_hot(batch_inputs, num_classes=vocab).float().to(device)
+        targets_onehot = F.one_hot(batch_targets, num_classes=vocab).to(device)
+
+        model.zero_grad()
+        pred = model(batch_inputs)     
+        
+        loss = cross_entropy_loss(pred, targets_onehot)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(),
+                                       max_norm=config.max_norm)
+        optimizer.step()
+
+        accuracy = batch_accuracy(pred, batch_targets)
 
         # Just for time measurement
         t2 = time.time()
@@ -78,7 +93,10 @@ def train(config):
 
         if (step + 1) % config.sample_every == 0:
             # Generate some sentences by sampling from the model
-            pass
+            # sentence = [random.randint(0, vocab+1)]
+            # for _ in range(config.seq_length):
+            #     next_letter = model()
+
 
         if step == config.train_steps:
             # If you receive a PyTorch data-loader error,
@@ -87,6 +105,21 @@ def train(config):
             break
 
     print('Done training.')
+
+def cross_entropy_loss(pred, target):
+    # predictions of size (sequence_length, batch_size, vocabulary_size)
+    # targets of size (sequence_length, batch_size, vocabulary_size)
+    L = - torch.sum(target * torch.log(pred), dim=2)
+    L = torch.mean(L, dim=0)
+    return torch.mean(L)
+
+def batch_accuracy(pred, target):
+    # predictions of size (sequence_length, batch_size, vocabulary_size)
+    # targets of size (sequence_length, batch_size)
+    pred = torch.argmax(pred, dim=2)
+    accuracy = torch.mean((pred == target).float(), dim=(0,1))
+    return accuracy
+    
 
 
 ###############################################################################

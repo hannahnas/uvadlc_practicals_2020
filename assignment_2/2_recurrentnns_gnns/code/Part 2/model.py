@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import torch.nn as nn
+import torch.nn.functional as F
+import torch
 
 
 class TextGenerationModel(nn.Module):
@@ -26,8 +28,17 @@ class TextGenerationModel(nn.Module):
                  lstm_num_hidden=256, lstm_num_layers=2, device='cuda:0'):
 
         super(TextGenerationModel, self).__init__()
-        # Initialization here...
+        
+        self.seq_length = seq_length
+        self.model = nn.LSTM(vocabulary_size, lstm_num_hidden, lstm_num_layers, batch_first=False).to(device)
+        self.W_ph = nn.Parameter(torch.Tensor(lstm_num_hidden, vocabulary_size)).to(device)
+        self.b_p = nn.Parameter(torch.zeros(1, 1, vocabulary_size)).to(device)
+        nn.init.kaiming_normal_(self.W_ph, nonlinearity='tanh')
 
     def forward(self, x):
-        # Implementation here...
-        pass
+        out, _ = self.model(x)
+        out = torch.einsum("abc,cd->abd", (out, self.W_ph)) + self.b_p
+        out = F.softmax(out, dim=2)
+
+        return out
+
