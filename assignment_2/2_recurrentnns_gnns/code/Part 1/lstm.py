@@ -44,17 +44,18 @@ class LSTM(nn.Module):
 
 
     def weights(self, dim_1, dim_2, device, nonlin='linear'):
-        W = nn.Parameter(torch.Tensor(dim_1, dim_2))
+        W = torch.Tensor(dim_1, dim_2).to(device)
         nn.init.kaiming_normal_(W, nonlinearity=nonlin)
-        return W.to(device)
+        W = nn.Parameter(W)
+        return W
 
     def bias(self, dim, device):
-        b = nn.Parameter(torch.zeros(dim, 1))
-        return b.to(device)
+        b = nn.Parameter(torch.zeros(dim, 1)).to(device)
+        return b
 
     def forward(self, x):
         h = torch.zeros((self.hidden, 1), requires_grad=True).to(self.device) 
-        c = torch.zeros((self.hidden, 1), requires_grad=True).to(self.device) 
+        c = torch.zeros((self.hidden, 1), requires_grad=True).to(self.device)
 
         batch, time = x.shape
         x = torch.unsqueeze(x, 2)

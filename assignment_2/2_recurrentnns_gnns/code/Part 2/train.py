@@ -23,7 +23,6 @@ from datetime import datetime
 import argparse
 
 import numpy as np
-import random
 
 import torch
 import torch.optim as optim
@@ -51,7 +50,7 @@ def train(config):
 
     # Setup the loss and optimizer
     criterion = torch.nn.CrossEntropyLoss()  # FIXME
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.learning_rate_decay)
+    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)#, weight_decay=config.learning_rate_decay)
 
     batch = config.batch_size
 
@@ -92,11 +91,25 @@ def train(config):
                     ))
 
         if (step + 1) % config.sample_every == 0:
-            # Generate some sentences by sampling from the model
-            # sentence = [random.randint(0, vocab+1)]
-            # for _ in range(config.seq_length):
-            #     next_letter = model()
+            # Generate 5 sentences by sampling from the model
+            letters = torch.randint(high=vocab, size=(1, 5)).to(device)
+            sentence = [letters]
+            letters = F.one_hot(letters, num_classes=vocab).float().to(device)
+            with torch.no_grad():
+                for _ in range(config.seq_length-1):
+                    probs = model(letters)[-1, :, :]
+                    probs = torch.unsqueeze(probs, dim=0)
+                    next_letters = torch.argmax(probs, dim=2)
+                    sentence.append(next_letters)
+                    next_letters = F.one_hot(next_letters, num_classes=vocab)
+                    letters = torch.cat((letters, next_letters), dim=0)
 
+            sentences = torch.stack(sentence)
+            print(sentences.shape)
+            for i in range(5):
+                sentence = sentences[:, 0, i].tolist()
+                string = dataset.convert_to_string(sentence)
+                print(f"sentence {i}: {string}")
 
         if step == config.train_steps:
             # If you receive a PyTorch data-loader error,

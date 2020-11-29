@@ -13,13 +13,14 @@ import torch.nn as nn
 import torch
 
 def weights(dim_1, dim_2, device, nonlin='linear'):
-    W = nn.Parameter(torch.Tensor(dim_1, dim_2))
+    W = torch.Tensor(dim_1, dim_2).to(device)
     nn.init.kaiming_normal_(W, nonlinearity=nonlin)
-    return W.to(device)
+    W = nn.Parameter(W)
+    return W
 
 def bias(dim, device):
-    b = nn.Parameter(torch.zeros(dim, 1))
-    return b.to(device)
+    b = nn.Parameter(torch.zeros(dim, 1)).to(device)
+    return b
 
 
 class biLSTM(nn.Module):
