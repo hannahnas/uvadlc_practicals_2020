@@ -38,7 +38,7 @@ class TextGenerationModel(nn.Module):
     def forward(self, x):
         out, _ = self.model(x)
         out = torch.einsum("abc,cd->abd", (out, self.W_ph)) + self.b_p
-        out = F.softmax(out, dim=2)
+        # out = F.softmax(out, dim=2)
 
         return out
 

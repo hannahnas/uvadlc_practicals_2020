@@ -36,6 +36,7 @@ from gru import GRU
 from peep_lstm import peepLSTM
 
 import numpy as np
+import pickle
 
 # You may want to look into tensorboardX for logging
 # from tensorboardX import SummaryWriter
@@ -44,9 +45,12 @@ import numpy as np
 
 
 def train(config):
-    np.random.seed(0)
-    torch.manual_seed(0)
+    np.random.seed(config.seed)
+    torch.manual_seed(config.seed)
 
+    # Save for performance curves
+    performance = {'Loss': [],
+                    'Accuracy': []}
 
     # Initialize the device which to run the model on
     device = torch.device(config.device)
@@ -138,6 +142,7 @@ def train(config):
 
         # Compute the loss, gradients and update network parameters
         loss = loss_function(log_probs, batch_targets)
+        performance['Loss'].append([step, loss.item()])
         loss.backward()
 
         #######################################################################
@@ -151,8 +156,8 @@ def train(config):
         predictions = torch.argmax(log_probs, dim=1)
         correct = (predictions == batch_targets).sum().item()
         accuracy = correct / log_probs.size(0)
+        performance['Accuracy'].append([step, accuracy])
 
-        # print(predictions[0, ...], batch_targets[0, ...])
 
         # Just for time measurement
         t2 = time.time()
@@ -175,6 +180,7 @@ def train(config):
             break
 
     print('Done training.')
+    pickle.dump(performance, open(f"./Performance/{config.model_type}_seqlen_{config.input_length}_seed_{config.seed}.p", "wb" ))
     ###########################################################################
     ###########################################################################
 
@@ -219,6 +225,10 @@ if __name__ == "__main__":
                         help='Log device placement for debugging')
     parser.add_argument('--summary_path', type=str, default="./summaries/",
                         help='Output path for summaries')
+
+    # Added arguments
+    parser.add_argument('--seed', type=int, default=0,
+                        help='Seed to be set')
 
     config = parser.parse_args()
 
